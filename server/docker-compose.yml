@@ -1,0 +1,72 @@
+services:
+  web:
+    build: ./project
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - 80:8000
+    volumes:
+      - ./project:/usr/src/app
+    depends_on:
+      wait-for-db:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    env_file:
+      - ./.env
+
+  worker:
+    build: ./project
+    command: celery -A worker.celery worker --loglevel=warning
+    volumes:
+      - ./project:/usr/src/app
+    depends_on:
+      - web
+      - redis
+    env_file:
+      - ./.env
+
+  redis:
+    image: redis:7
+    env_file:
+      - ./.env
+
+  celery_dashboard:
+    build: ./project
+    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    ports:
+      - 5555:5555
+    depends_on:
+      - web
+      - redis
+      - worker
+    env_file:
+      - ./.env
+
+  db:
+    image: mariadb:latest
+    ports:
+      - 3306:3306
+    volumes:
+      - db_data:/var/lib/mysql
+    env_file:
+      - ./.env
+
+  wait-for-db:
+    image: atkrad/wait4x
+    depends_on:
+      - db
+    command: tcp db:3306 -t 30s -i 250ms
+    env_file:
+      - ./.env
+
+  adminerevo:
+    image: ghcr.io/shyim/adminerevo:latest
+    ports:
+      - 8080:8080
+    depends_on:
+      - db
+    env_file:
+      - ./.env
+
+volumes:
+  db_data:

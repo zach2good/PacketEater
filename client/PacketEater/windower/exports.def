@@ -1,0 +1,4 @@
+LIBRARY _PacketEater.dll
+
+EXPORTS
+	luaopen__PacketEater

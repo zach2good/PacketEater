@@ -1,0 +1,15 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<div class="starter-template">
+  <h1>FFXI Packet Eater</h1>
+  <hr><br>
+  <p class="lead">Welcome to the FFXI Packet Eater!</p>
+  <p class="lead">{{ stat_str }}</p>
+  <hr><br>
+  <p class="lead"><b>Recent Event Packet (0x34):</b></p>
+  <p class="lead">{{ event_packet_string }}</p>
+</div>
+
+{% endblock %}
