@@ -19,7 +19,7 @@ Not currently hosted to the public. But it will be soon!
 - Proper hygiene about database sessions in the server application and worker
 - ~~Session management~~
 - Make session management less database-intensive
-- Capture client version per session (Windower: `windower.get_windower_settings().ffxi_version?`, Ashita: ?)
+- ~~Capture client version per session~~
 - ~~Capture zone id per packet~~
 - Capture retail server id per session
 - Erase chat content from chat packets
@@ -50,3 +50,4 @@ Not currently hosted to the public. But it will be soon!
 - "or since you're working in c++ you can just grab the location of ffximain.dll because it'll be loaded" - Thorny
 - Sessiosn combining/debouncing doesn't seem to work correctly? Sessions within 10s of eachother (or shall we go 30s?) don't seem to be automatically combining every 60s
 - Windower: use `pol_path` to work backwards to get the FFXI install path
+- Clients: Draw a little logo, or with a cross through it - depending on if you're successfully sending or not.
