@@ -15,7 +15,7 @@ Not currently hosted to the public. But it will be soon!
 - ~~Send payload as base64 string~~
 - Send data C->S gzip'd, with a smaller encoding than JSON
 - Get data transmission size down as small as possible
-- Do ALL payload extraction and inspection work on the inspector
+- ~~Do ALL payload extraction and inspection work on the worker~~
 - Proper hygiene about database sessions in the server application and worker
 - ~~Session management~~
 - Make session management less database-intensive
@@ -28,15 +28,16 @@ Not currently hosted to the public. But it will be soon!
 - More systems to reject private server submissions, or ways to flag them afterwards so they can be banned/deleted (client-side or as server jobs), `NtSys::GetWorldName` ?
 - A side-system of data collection that captures the current client version, zone id, the target entity index and their in-game name - for tracking entity shifts
 - Allow users to accumulate their sent packet data in a folder locally for their own use
-- Allow users to customise which endpoint they're transmitting to (if they want to develop locally, etc.)
+- Allow users to customise which endpoint they're transmitting to (if they want to develop locally, etc.), but defaulting to the live server
 - Re-implement a page for weather data like `WeatherReporter` was designed to collect
 - SQL views for useful data (~~submitter general info~~)
 - Cache all information for on-demand endpoints
 - Capture self-statistics in a table over time (number of packets recieved, processed, stored - per hour, total size of packet storage, submitters, sessions, concurrent sessions)
 - Some nice graphs with the statistic data :)
-- Client: on-logged-in check
+- Client: on-logged-in check (is this needed? Doesn't look like it)
 - It's possible to read the client version string from the DATs instead of from memory or through Ashita/Windower APIs
 - Client: get build time from ffximain.dll as an approximation of client version
+- Client: Does reading client version string work on Ashita sandbox?
 - Client/Server: Batching packets instead of sending one-by-one
 - Client: Retry send a few times on fail, is this possible to detect on PUT/POST requests?
 - Hosting: CI and automatic release for the client libs, with MD5 hashes etc.
@@ -51,3 +52,4 @@ Not currently hosted to the public. But it will be soon!
 - Sessiosn combining/debouncing doesn't seem to work correctly? Sessions within 10s of eachother (or shall we go 30s?) don't seem to be automatically combining every 60s
 - Windower: use `pol_path` to work backwards to get the FFXI install path
 - Clients: Draw a little logo, or with a cross through it - depending on if you're successfully sending or not.
+- Build: Have CMake looks for env vars saying where your Windower/Ashita addon/plugin directories are, and automatically try and drop new builds in there
