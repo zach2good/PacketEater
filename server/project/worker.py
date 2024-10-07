@@ -20,7 +20,7 @@ def process_payload(
     identifier: str,
     request_payload: dict,
 ):
-    with database.get_cached_session() as session:
+    with database.get_cached_db_session() as db:
         data = base64.b64decode(request_payload["payload"])
 
         packet_type, packet_size = packets.get_packet_type_and_size(data)
@@ -35,13 +35,13 @@ def process_payload(
 
         origin = request_payload["origin"] # TODO: Hook this up
 
-        submitter = database.get_submitter_by_identifier(session, identifier)
+        submitter = database.get_submitter_by_identifier(db, identifier)
         capture_session = database.update_or_create_capture_session(
-            session, submitter, client_version
+            db, submitter, client_version
         )
 
         database.create_packet_data(
-            session,
+            db,
             capture_session,
             data,
             packet_type,

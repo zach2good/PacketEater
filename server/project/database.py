@@ -50,15 +50,15 @@ Base = declarative_base()
 
 
 @contextmanager
-def get_cached_session():
-    session = SessionLocal()
+def get_cached_db_session():
+    db = SessionLocal()
     try:
-        yield session
+        yield db
     except Exception as e:
-        session.rollback()
+        db.rollback()
         raise
     finally:
-        session.close()
+        db.close()
 
 
 #
@@ -165,12 +165,12 @@ def get_submitter_thin(submitter_orm_obj: Submitter):
     }
 
 
-def get_submitter_thin_map(session: Session):
+def get_submitter_thin_map(db: Session):
     submitter_map = {}
 
     # Query only the columns you care about and exclude relationships
     submitters = (
-        session.query(Submitter)
+        db.query(Submitter)
         .options(
             load_only(
                 Submitter.id,
@@ -191,20 +191,20 @@ def get_submitter_thin_map(session: Session):
     return submitter_map
 
 
-def get_submitter_count(session: Session) -> int:
-    return session.query(Submitter).count()
+def get_submitter_count(db: Session) -> int:
+    return db.query(Submitter).count()
 
 
-def get_packet_count(session: Session) -> int:
-    return session.query(PacketData).count()
+def get_packet_count(db: Session) -> int:
+    return db.query(PacketData).count()
 
 
-def get_packet_size_bytes(session: Session) -> int:
-    return session.query(func.sum(PacketData.size)).scalar()
+def get_packet_size_bytes(db: Session) -> int:
+    return db.query(func.sum(PacketData.size)).scalar()
 
 
-def get_submitter_by_identifier(session: Session, identifier: str) -> Submitter:
-    return session.query(Submitter).filter(Submitter.identifier == identifier).first()
+def get_submitter_by_identifier(db: Session, identifier: str) -> Submitter:
+    return db.query(Submitter).filter(Submitter.identifier == identifier).first()
 
 
 #
@@ -212,26 +212,26 @@ def get_submitter_by_identifier(session: Session, identifier: str) -> Submitter:
 #
 
 
-def create_submitter(session: Session, identifier: str) -> Submitter:
+def create_submitter(db: Session, identifier: str) -> Submitter:
     submitter = Submitter(identifier=identifier)
-    session.add(submitter)
-    session.commit()
+    db.add(submitter)
+    db.commit()
     return submitter
 
 
 def create_capture_session(
-    session: Session, submitter: Submitter, client_version: str
+    db: Session, submitter: Submitter, client_version: str
 ) -> CaptureSession:
     print(f"Creating capture session for: {submitter.identifier[:8]}...")
     capture_session = CaptureSession(submitter=submitter)
     capture_session.client_version = client_version
-    session.add(capture_session)
-    session.commit()
+    db.add(capture_session)
+    db.commit()
     return capture_session
 
 
 def create_packet_data(
-    session: Session,
+    db: Session,
     capture_session: CaptureSession,
     data: bytes,
     packet_type: int,
@@ -250,8 +250,8 @@ def create_packet_data(
         timestamp=timestamp,
     )
 
-    session.add(packet)
-    session.commit()
+    db.add(packet)
+    db.commit()
 
     return packet
 
@@ -263,37 +263,37 @@ def create_packet_data(
 
 # TODO: Add some caching here so we're not so reliant on constantly querying the database
 def update_or_create_capture_session(
-    session: Session, submitter: Submitter, client_version: str
+    db: Session, submitter: Submitter, client_version: str
 ) -> CaptureSession:
     capture_session = (
-        session.query(CaptureSession)
+        db.query(CaptureSession)
         .filter(CaptureSession.submitter_id == submitter.id)
         .order_by(CaptureSession.start_time.desc())
         .first()
     )
 
     if capture_session is None:
-        capture_session = create_capture_session(session, submitter, client_version)
+        capture_session = create_capture_session(db, submitter, client_version)
     elif capture_session.last_update_time < datetime.now() - timedelta(
         seconds=10
     ):  # TODO: Is 10 seconds a good threshold?
-        capture_session = create_capture_session(session, submitter, client_version)
+        capture_session = create_capture_session(db, submitter, client_version)
     else:
         capture_session.last_update_time = datetime.now()
-        session.add(capture_session)
-        session.commit()
+        db.add(capture_session)
+        db.commit()
 
     return capture_session
 
 
-def combine_and_prune_capture_sessions_by_start_time(session: Session):
+def combine_and_prune_capture_sessions_by_start_time(db: Session):
     print("Combining and pruning capture sessions by start time...")
     # TODO: This doesn't seem to work reliably yet. Do we even need this?
     return
 
     # Get all capture sessions ordered by start time (latest first)
     capture_sessions = (
-        session.query(CaptureSession).order_by(CaptureSession.start_time.desc()).all()
+        db.query(CaptureSession).order_by(CaptureSession.start_time.desc()).all()
     )
 
     capture_sessions_to_delete = []
@@ -325,15 +325,15 @@ def combine_and_prune_capture_sessions_by_start_time(session: Session):
         # Delete all marked capture sessions in a single batch
         for capture_session_to_delete in capture_sessions_to_delete:
             try:
-                session.delete(capture_session_to_delete)
+                db.delete(capture_session_to_delete)
             except Exception as e:
                 print(
                     f"Error deleting capture session {capture_session_to_delete.id}: {e}"
                 )
                 raise
 
-        session.commit()
+        db.commit()
     except Exception as e:
         print(f"Error during capture session combining: {e}")
-        session.rollback()
+        db.rollback()
         raise

@@ -89,10 +89,10 @@ def redirect_to_packets():
 
 @app.get("/packets")
 def home(request: Request):
-    with database.get_cached_session() as session:
-        packet_count = database.get_packet_count(session)
-        submitter_count = database.get_submitter_count(session)
-        packets_bytes = database.get_packet_size_bytes(session)
+    with database.get_cached_db_session() as db:
+        packet_count = database.get_packet_count(db)
+        submitter_count = database.get_submitter_count(db)
+        packets_bytes = database.get_packet_size_bytes(db)
         packets_bytes_str = utils.human_readable_size_str(packets_bytes)
         plural_packets = "s" if packet_count > 1 else ""
         plural_submitters = "s" if submitter_count > 1 else ""
@@ -107,7 +107,7 @@ def home(request: Request):
 
         event_packet_string = ""
         for packet in (
-            session.query(database.PacketData)
+            db.query(database.PacketData)
             .filter(database.PacketData.type == 0x34)
             .limit(1)
             .all()
@@ -144,10 +144,10 @@ def on_startup():
 @app.on_event("startup")
 @repeat_every(seconds=60)
 def on_startup_and_periodic_update() -> None:
-    with database.get_cached_session() as session:
+    with database.get_cached_db_session() as db:
         global submitter_thin_map
-        submitter_thin_map = database.get_submitter_thin_map(session)
-        database.combine_and_prune_capture_sessions_by_start_time(session)
+        submitter_thin_map = database.get_submitter_thin_map(db)
+        database.combine_and_prune_capture_sessions_by_start_time(db)
 
 
 @app.put("/upload")
@@ -163,19 +163,19 @@ async def home(request: Request, request_payload: RequestPayload):
     identifier = utils.generate_identifier(ip_address)
     # !!! This is the only time we handle the IP address !!!
 
-    with database.get_cached_session() as session:
+    with database.get_cached_db_session() as db:
         global submitter_thin_map
         if identifier not in submitter_thin_map:
             print(
                 f"Creating submitter information for new identifier: {identifier[:8]}..."
             )
             identifier = utils.generate_identifier(ip_address)
-            submitter = database.create_submitter(session, identifier)
+            submitter = database.create_submitter(db, identifier)
 
             if is_local:
                 submitter.whitelisted = True
-                session.add(submitter)
-                session.commit()
+                db.add(submitter)
+                db.commit()
                 print(f"Whitelisted local submitter: {identifier[:8]}...")
 
             submitter_thin_map[identifier] = database.get_submitter_thin(submitter)
