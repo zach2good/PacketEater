@@ -286,21 +286,54 @@ def update_or_create_capture_session(
     return capture_session
 
 
-# TODO: Does this even work?
-def combine_capture_sessions_by_start_time(session: Session):
-    sessions = (
+def combine_and_prune_capture_sessions_by_start_time(session: Session):
+    print("Combining and pruning capture sessions by start time...")
+    # TODO: This doesn't seem to work reliably yet. Do we even need this?
+    return
+
+    # Get all capture sessions ordered by start time (latest first)
+    capture_sessions = (
         session.query(CaptureSession).order_by(CaptureSession.start_time.desc()).all()
     )
 
-    for i in range(1, len(sessions)):
-        time_a = sessions[i].start_time
-        time_b = sessions[i - 1].start_time
+    capture_sessions_to_delete = []
+    try:
+        for i in range(1, len(capture_sessions)):
+            time_a = capture_sessions[i].start_time
+            time_b = capture_sessions[i - 1].start_time
 
-        # If they are within 10 seconds of each other, combine them
-        if abs((time_a - time_b).total_seconds()) < 10:
-            for packet in sessions[i].packets:
-                packet.session = sessions[i - 1]
-            session.delete(sessions[i])
+            # If they are within 60 seconds of each other, combine them
+            if abs((time_a - time_b).total_seconds()) < 60:
+                # Move packets to the previous capture session
+                for packet in capture_sessions[i].packets:
+                    try:
+                        packet.capture_session = capture_sessions[i - 1]
+                    except Exception as e:
+                        print(f"Error reassigning packet {packet.id}: {e}")
+                        raise
 
-    session.commit()
-    return sessions
+                capture_sessions_to_delete.append(capture_sessions[i])
+
+        # After combining, remove any capture sessions that don't have any packets
+        for capture_session_obj in capture_sessions:
+            if (
+                not capture_session_obj.packets
+                and capture_session_obj not in capture_sessions_to_delete
+            ):
+                capture_sessions_to_delete.append(capture_session_obj)
+
+        # Delete all marked capture sessions in a single batch
+        for capture_session_to_delete in capture_sessions_to_delete:
+            try:
+                session.delete(capture_session_to_delete)
+            except Exception as e:
+                print(
+                    f"Error deleting capture session {capture_session_to_delete.id}: {e}"
+                )
+                raise
+
+        session.commit()
+    except Exception as e:
+        print(f"Error during capture session combining: {e}")
+        session.rollback()
+        raise

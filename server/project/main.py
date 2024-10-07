@@ -29,7 +29,7 @@ class RequestPayload(BaseModel):
     origin: int
 
 
-submitter_map = {}
+submitter_thin_map = {}
 
 exclamations = [
     "yum",
@@ -143,11 +143,11 @@ def on_startup():
 
 @app.on_event("startup")
 @repeat_every(seconds=60)
-def refresh_submitter_map() -> None:
+def on_startup_and_periodic_update() -> None:
     with database.get_cached_session() as session:
         global submitter_thin_map
         submitter_thin_map = database.get_submitter_thin_map(session)
-        database.combine_capture_sessions_by_start_time(session)
+        database.combine_and_prune_capture_sessions_by_start_time(session)
 
 
 @app.put("/upload")
@@ -193,7 +193,8 @@ async def home(request: Request, request_payload: RequestPayload):
                 detail="Submitter is not whitelisted.",
             )
 
-        # TODO: Check capture session status here, before we get into the worker(s)
+        # TODO: Check/create capture sessions here, before we get into the worker(s) - they will fight and create multiple
+        #     : capture sessions that we will then neeed to combine.
 
         try:
             worker.process_payload.delay(
