@@ -1,5 +1,6 @@
 import os
 import datetime
+import typing
 
 from datetime import datetime, timedelta
 from contextlib import contextmanager
@@ -45,6 +46,7 @@ engine = create_engine(
 SessionLocal = scoped_session(
     sessionmaker(autocommit=False, autoflush=False, bind=engine)
 )
+DatabaseSession = typing.NewType("DatabaseSession", Session)
 
 Base = declarative_base()
 
@@ -165,7 +167,7 @@ def get_submitter_thin(submitter_orm_obj: Submitter):
     }
 
 
-def get_submitter_thin_map(db: Session):
+def get_submitter_thin_map(db: DatabaseSession):
     submitter_map = {}
 
     # Query only the columns you care about and exclude relationships
@@ -191,19 +193,19 @@ def get_submitter_thin_map(db: Session):
     return submitter_map
 
 
-def get_submitter_count(db: Session) -> int:
+def get_submitter_count(db: DatabaseSession) -> int:
     return db.query(Submitter).count()
 
 
-def get_packet_count(db: Session) -> int:
+def get_packet_count(db: DatabaseSession) -> int:
     return db.query(PacketData).count()
 
 
-def get_packet_size_bytes(db: Session) -> int:
+def get_packet_size_bytes(db: DatabaseSession) -> int:
     return db.query(func.sum(PacketData.size)).scalar()
 
 
-def get_submitter_by_identifier(db: Session, identifier: str) -> Submitter:
+def get_submitter_by_identifier(db: DatabaseSession, identifier: str) -> Submitter:
     return db.query(Submitter).filter(Submitter.identifier == identifier).first()
 
 
@@ -212,7 +214,7 @@ def get_submitter_by_identifier(db: Session, identifier: str) -> Submitter:
 #
 
 
-def create_submitter(db: Session, identifier: str) -> Submitter:
+def create_submitter(db: DatabaseSession, identifier: str) -> Submitter:
     submitter = Submitter(identifier=identifier)
     db.add(submitter)
     db.commit()
@@ -220,7 +222,7 @@ def create_submitter(db: Session, identifier: str) -> Submitter:
 
 
 def create_capture_session(
-    db: Session, submitter: Submitter, client_version: str
+    db: DatabaseSession, submitter: Submitter, client_version: str
 ) -> CaptureSession:
     print(f"Creating capture session for: {submitter.identifier[:8]}...")
     capture_session = CaptureSession(submitter=submitter)
@@ -231,7 +233,7 @@ def create_capture_session(
 
 
 def create_packet_data(
-    db: Session,
+    db: DatabaseSession,
     capture_session: CaptureSession,
     data: bytes,
     packet_type: int,
@@ -263,7 +265,7 @@ def create_packet_data(
 
 # TODO: Add some caching here so we're not so reliant on constantly querying the database
 def update_or_create_capture_session(
-    db: Session, submitter: Submitter, client_version: str
+    db: DatabaseSession, submitter: Submitter, client_version: str
 ) -> CaptureSession:
     capture_session = (
         db.query(CaptureSession)
@@ -286,7 +288,7 @@ def update_or_create_capture_session(
     return capture_session
 
 
-def combine_and_prune_capture_sessions_by_start_time(db: Session):
+def combine_and_prune_capture_sessions_by_start_time(db: DatabaseSession):
     print("Combining and pruning capture sessions by start time...")
     # TODO: This doesn't seem to work reliably yet. Do we even need this?
     return
