@@ -26,6 +26,9 @@ void PacketEaterCore::SendPutRequest(const std::string& path, const std::string&
 
             // TODO: gzip
             // TODO: Handle response codes
+            // TODO: On a successful submission we'll get back a JSON response with code 202.
+            //     : This will also have the submitter identifier and capture session identifier.
+            //     : On the first successful submission we should log these to the user.
             std::ignore = m_CLI->Post(path, payload, "application/json");
         }
         catch (std::exception e)

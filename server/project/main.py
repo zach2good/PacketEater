@@ -196,6 +196,12 @@ async def home(request: Request, request_payload: RequestPayload):
         # TODO: Check/create capture sessions here, before we get into the worker(s) - they will fight and create multiple
         #     : capture sessions that we will then neeed to combine.
 
+        # TODO: Once we have the capture session information here, we should send it in the JSONResponse so the client can
+        #     : display the submitter identifier and capture session identifier to the user.
+        capture_session_identifier = 1
+
+        # TODO: Give the user some way of requesting that their current capture session be closed and a new one started.
+
         try:
             worker.process_payload.delay(
                 identifier,
@@ -203,8 +209,13 @@ async def home(request: Request, request_payload: RequestPayload):
             )
 
             return JSONResponse(
-                content={"status": "queued"},
                 status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "status": "queued",
+                    "submitter_identifier": identifier,
+                    "capture_session_identifier": capture_session_identifier,
+                    "should_log": True,
+                },
             )
         except Exception as e:
             print(f"Error processing payload: {e}")

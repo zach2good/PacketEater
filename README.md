@@ -12,6 +12,7 @@ Not currently hosted to the public. But it will be soon!
 
 ## Launch TODO List
 
+- All the TODOs left in the code
 - ~~Send payload as base64 string~~
 - Send data C->S gzip'd, with a smaller encoding than JSON
 - Get data transmission size down as small as possible
@@ -52,4 +53,6 @@ Not currently hosted to the public. But it will be soon!
 - Sessiosn combining/debouncing doesn't seem to work correctly? Sessions within 10s of eachother (or shall we go 30s?) don't seem to be automatically combining every 60s
 - Windower: use `pol_path` to work backwards to get the FFXI install path
 - Clients: Draw a little logo, or with a cross through it - depending on if you're successfully sending or not.
+- Clients: Maybe a little mouse-over popup
+- Clients: Communicate back with the 202 JSON response body
 - Build: Have CMake looks for env vars saying where your Windower/Ashita addon/plugin directories are, and automatically try and drop new builds in there
