@@ -55,7 +55,7 @@ namespace
         static PacketEaterCore wrCore;
         CharacterInfo info;
         info.name    = table["name"];
-        info.zoneId  = table["zone"];
+        info.zone_id = table["zone_id"];
         info.version = table["version"];
         wrCore.HandlePacketData(info, (uint8_t*)data.data(), data.size(), direction == "S2C" ? PacketDirection::S2C : PacketDirection::C2S, OriginProgram::Windower_v4);
     }

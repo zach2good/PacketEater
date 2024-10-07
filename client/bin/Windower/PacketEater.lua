@@ -45,7 +45,7 @@ local versionString = getVersionString()
 windower.register_event('incoming chunk', function(id, data)
     local info          = windower.ffxi.get_info()
     local player_info   = windower.ffxi.get_player()
-    player_info.zone    = info.zone
+    player_info.zone_id = info.zone
     player_info.version = versionString
     _PacketEater.submit(player_info, data, "s2c")
 end)
@@ -53,7 +53,7 @@ end)
 windower.register_event('outgoing chunk', function(id, data)
     local info          = windower.ffxi.get_info()
     local player_info   = windower.ffxi.get_player()
-    player_info.zone    = info.zone
+    player_info.zone_id = info.zone
     player_info.version = versionString
     _PacketEater.submit(player_info, data, "c2s")
 end)

@@ -1,23 +1,33 @@
 import os
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi_utils.tasks import repeat_every
+from pydantic import BaseModel
+from typing import Optional
 
 import database
 import worker
 import utils
 
-import json
-import base64
 import random
-from datetime import datetime
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+
+class RequestPayload(BaseModel):
+    name: str
+    zone_id: int
+    version: Optional[str] = "Unknown"
+    payload: str  # Base64 encoded data
+    timestamp: float
+    direction: int
+    origin: int
+
 
 submitter_map = {}
 
@@ -93,22 +103,31 @@ def home(request: Request):
         if submitter_count == 0 or packet_count == 0:
             stat_str = "No packets have been submitted yet! :("
 
-
         get_uint16 = lambda offset: packet.data[offset] | packet.data[offset + 1] << 8
 
         event_packet_string = ""
-        for packet in session.query(database.PacketData).filter(database.PacketData.type == 0x34).limit(1).all():
+        for packet in (
+            session.query(database.PacketData)
+            .filter(database.PacketData.type == 0x34)
+            .limit(1)
+            .all()
+        ):
             type = packet.data[0] & 0xFF | packet.data[1] & 0x01
             size = packet.data[1] & 0xFE
 
             npcLocalID = get_uint16(0x28)
-            zone       = get_uint16(0x2A)
-            long_id    = 0x01000000 | (zone << 0x0C) | npcLocalID
+            zone = get_uint16(0x2A)
+            long_id = 0x01000000 | (zone << 0x0C) | npcLocalID
 
             event_packet_string += f"Packet type: {type}, size: {size}, npcLocalID: {npcLocalID}, zone: {zone}, long_id: {long_id}\n"
 
         return templates.TemplateResponse(
-            "home.html", context={"request": request, "stat_str": stat_str, "event_packet_string": event_packet_string}
+            "home.html",
+            context={
+                "request": request,
+                "stat_str": stat_str,
+                "event_packet_string": event_packet_string,
+            },
         )
 
 
@@ -126,14 +145,14 @@ def on_startup():
 @repeat_every(seconds=60)
 def refresh_submitter_map() -> None:
     with database.get_cached_session() as session:
-        global submitter_map
-        submitter_map = database.get_submitter_map(session)
+        global submitter_thin_map
+        submitter_thin_map = database.get_submitter_thin_map(session)
         database.combine_capture_sessions_by_start_time(session)
 
 
 @app.put("/upload")
 @app.post("/upload")
-async def home(request: Request):
+async def home(request: Request, request_payload: RequestPayload):
     # !!! This is the only time we handle the IP address !!!
     ip_address = request.client.host
     is_local = (
@@ -145,7 +164,8 @@ async def home(request: Request):
     # !!! This is the only time we handle the IP address !!!
 
     with database.get_cached_session() as session:
-        if identifier not in submitter_map:
+        global submitter_thin_map
+        if identifier not in submitter_thin_map:
             print(
                 f"Creating submitter information for new identifier: {identifier[:8]}..."
             )
@@ -158,57 +178,36 @@ async def home(request: Request):
                 session.commit()
                 print(f"Whitelisted local submitter: {identifier[:8]}...")
 
-            submitter_map[identifier] = submitter
+            submitter_thin_map[identifier] = database.get_submitter_thin(submitter)
 
-        submitter = session.merge(submitter_map.get(identifier))
+        submitter = submitter_thin_map[identifier]
 
-        if submitter.banned:
-            return JSONResponse(
-                content={"status": "banned"},
-                status_code=status.HTTP_403_FORBIDDEN,
+        if submitter["banned"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Submitter is banned."
             )
 
-        if not submitter.whitelisted:
-            return JSONResponse(
-                content={"status": "not yet whitelisted"},
-                status_code=status.HTTP_403_FORBIDDEN,
+        if not submitter["whitelisted"]:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Submitter is not whitelisted.",
             )
 
         # TODO: Check capture session status here, before we get into the worker(s)
 
         try:
-            # TODO: This isn't ideal. Do this in a more FastAPI way.
-            json_bytes = await request.body()
-
-            # TODO: All of this processing should be happening on the worker
-            json_obj = json.loads(json_bytes)
-
-            data = base64.b64decode(json_obj["payload"])
-
-            # Of the first 2 bytes, the first 9-bits of the payload are the packet type
-            packet_type = data[0] & 0xFF | data[1] & 0x01
-
-            # the remaining 7-bits are the packet size
-            packet_size = data[1] & 0xFE
-
-            packet_direction = database.PacketDirection(json_obj["direction"])
-
-            zone_id = int(json_obj["zoneId"])
-
-            timestamp = datetime.fromtimestamp(float(json_obj["timestamp"]) / 1000)
-
-            client_version = json_obj.get("version", "Unknown")
-
             worker.process_payload.delay(
-                identifier, data, packet_type, packet_size, packet_direction, zone_id, timestamp, client_version
+                identifier,
+                request_payload.dict(),  # Convert Pydantic model to a dictionary for transport
             )
+
             return JSONResponse(
                 content={"status": "queued"},
                 status_code=status.HTTP_202_ACCEPTED,
             )
         except Exception as e:
             print(f"Error processing payload: {e}")
-            return JSONResponse(
-                content={"status": "error"},
+            raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error processing payload.",
             )

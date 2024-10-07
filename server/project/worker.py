@@ -3,7 +3,9 @@ import os
 from celery import Celery
 
 import database
+import packets
 
+import base64
 from datetime import datetime
 
 celery = Celery(__name__)
@@ -16,18 +18,27 @@ celery.conf.result_backend = os.environ.get(
 @celery.task(name="process_payload")
 def process_payload(
     identifier: str,
-    data: bytes,
-    packet_type: int,
-    packet_size: int,
-    packet_direction: int,
-    zone_id: int,
-    timestamp: datetime,
-    client_version: str,
+    request_payload: dict,
 ):
     with database.get_cached_session() as session:
+        data = base64.b64decode(request_payload["payload"])
+
+        packet_type, packet_size = packets.get_packet_type_and_size(data)
+
+        packet_direction = packets.PacketDirection(request_payload["direction"])
+
+        zone_id = int(request_payload["zone_id"])
+
+        timestamp = datetime.fromtimestamp(float(request_payload["timestamp"]) / 1000)
+
+        client_version = request_payload["version"]
+
+        origin = request_payload["origin"] # TODO: Hook this up
+
         submitter = database.get_submitter_by_identifier(session, identifier)
-        capture_session = database.update_or_create_capture_session(session, submitter, client_version)
-        packet_direction = database.PacketDirection(packet_direction)
+        capture_session = database.update_or_create_capture_session(
+            session, submitter, client_version
+        )
 
         database.create_packet_data(
             session,

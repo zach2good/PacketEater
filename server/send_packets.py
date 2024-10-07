@@ -7,7 +7,7 @@ import time
 import requests
 import concurrent.futures
 
-url = "http://localhost:8000/upload"
+url = "http://localhost/upload"
 
 
 def send_packet():

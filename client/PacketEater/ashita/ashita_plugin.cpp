@@ -157,7 +157,7 @@ bool PacketEater::HandleIncomingPacket(uint16_t id, uint32_t size, const uint8_t
 {
     CharacterInfo info;
     info.name    = m_AshitaCore->GetMemoryManager()->GetParty()->GetMemberName(0);
-    info.zoneId  = m_AshitaCore->GetMemoryManager()->GetParty()->GetMemberZone(0);
+    info.zone_id = m_AshitaCore->GetMemoryManager()->GetParty()->GetMemberZone(0);
     info.version = getVersionStr();
     this->wrCore->HandlePacketData(info, modified, size, PacketDirection::S2C, OriginProgram::Ashita_v4);
     return false;
@@ -167,7 +167,7 @@ bool PacketEater::HandleOutgoingPacket(uint16_t id, uint32_t size, const uint8_t
 {
     CharacterInfo info;
     info.name    = m_AshitaCore->GetMemoryManager()->GetParty()->GetMemberName(0);
-    info.zoneId  = m_AshitaCore->GetMemoryManager()->GetParty()->GetMemberZone(0);
+    info.zone_id = m_AshitaCore->GetMemoryManager()->GetParty()->GetMemberZone(0);
     info.version = getVersionStr();
     this->wrCore->HandlePacketData(info, modified, size, PacketDirection::C2S, OriginProgram::Ashita_v4);
     return false;

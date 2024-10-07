@@ -17,11 +17,11 @@ T& ref(U* buf, std::size_t index)
 struct CharacterInfo
 {
     std::string name;    // Used to remove the character name before we submit the data
-    uint16_t    zoneId;  //
+    uint16_t    zone_id; //
     std::string version; // client version
 
-    // TODO: in-game time
-    // TODO: character pos
+    // TODO?: in-game time
+    // TODO?: character pos
 };
 
 enum class PacketDirection : uint8_t
@@ -44,9 +44,11 @@ public:
     PacketEaterCore()  = default;
     ~PacketEaterCore() = default;
 
-    PacketEaterCore(const PacketEaterCore& other)       = delete;
-    PacketEaterCore(PacketEaterCore&& other)            = delete;
-    PacketEaterCore& operator=(PacketEaterCore&& other) = delete;
+    PacketEaterCore(const PacketEaterCore& other)            = delete;
+    PacketEaterCore(PacketEaterCore&& other)                 = delete;
+
+    PacketEaterCore& operator=(PacketEaterCore&& other)      = delete;
+    PacketEaterCore& operator=(const PacketEaterCore& other) = delete;
 
     void SendPutRequest(const std::string& path, const std::string& payload);
     bool DetectRetail();

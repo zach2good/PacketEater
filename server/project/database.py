@@ -1,8 +1,10 @@
 import os
 import datetime
-import enum
+
 from datetime import datetime, timedelta
 from contextlib import contextmanager
+
+import packets
 
 from sqlalchemy import (
     Column as Col,
@@ -16,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy import create_engine
 from sqlalchemy.types import VARCHAR
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, load_only
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, Session
 from sqlalchemy.sql import func
@@ -79,25 +81,6 @@ class HashColumn(Integer):
 
 
 #
-# Enums
-#
-
-
-class PacketDirection(int, enum.Enum):
-    S2C = 0
-    C2S = 1
-
-    @staticmethod
-    def from_str(label):
-        if label.upper() in ("S2C", "SERVER_TO_CLIENT"):
-            return PacketDirection.S2C
-        elif label.upper() in ("C2S", "CLIENT_TO_SERVER"):
-            return PacketDirection.C2S
-        else:
-            raise NotImplementedError
-
-
-#
 # Database Models
 #
 
@@ -145,7 +128,7 @@ class PacketData(Base):
     timestamp = Column(DateTime)
     type = Column(Integer)  # Extracted from data
     size = Column(Integer)  # Extracted from data / actual size of data
-    direction = Column(Enum(PacketDirection))
+    direction = Column(Enum(packets.PacketDirection))
     zone_id = Column(Integer)
 
     # Foreign key to the session this packet belongs to
@@ -173,10 +156,38 @@ def drop_tables():
 #
 
 
-def get_submitter_map(session: Session):
+def get_submitter_thin(submitter_orm_obj: Submitter):
+    return {
+        "id": submitter_orm_obj.id,
+        "identifier": submitter_orm_obj.identifier,
+        "whitelisted": submitter_orm_obj.whitelisted,
+        "banned": submitter_orm_obj.banned,
+    }
+
+
+def get_submitter_thin_map(session: Session):
     submitter_map = {}
-    for submitter in session.query(Submitter).all():
-        submitter_map[submitter.identifier] = submitter
+
+    # Query only the columns you care about and exclude relationships
+    submitters = (
+        session.query(Submitter)
+        .options(
+            load_only(
+                Submitter.id,
+                Submitter.identifier,
+                Submitter.whitelisted,
+                Submitter.banned,
+            )
+        )
+        .all()
+    )
+
+    # Convert to dictionary
+    for submitter_orm_obj in submitters:
+        submitter_map[submitter_orm_obj.identifier] = get_submitter_thin(
+            submitter_orm_obj
+        )
+
     return submitter_map
 
 
@@ -225,7 +236,7 @@ def create_packet_data(
     data: bytes,
     packet_type: int,
     packet_size: int,
-    packet_direction: PacketDirection,
+    packet_direction: packets.PacketDirection,
     zone_id: int,
     timestamp: datetime,
 ):

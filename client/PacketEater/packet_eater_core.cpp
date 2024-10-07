@@ -24,7 +24,9 @@ void PacketEaterCore::SendPutRequest(const std::string& path, const std::string&
                 m_CLI = std::make_unique<httplib::Client>(m_URL);
             }
 
-            std::ignore = m_CLI->Post(path, payload, "text/plain");
+            // TODO: gzip
+            // TODO: Handle response codes
+            std::ignore = m_CLI->Post(path, payload, "application/json");
         }
         catch (std::exception e)
         {
@@ -52,8 +54,9 @@ void PacketEaterCore::HandlePacketData(CharacterInfo const& info, uint8_t* data,
     using json = nlohmann::json;
     json j;
 
+    // NOTE: These must be the same keys as the server expects
     j["name"]      = info.name;
-    j["zoneId"]    = info.zoneId;
+    j["zone_id"]   = info.zone_id;
     j["version"]   = info.version;
     j["timestamp"] = timestamp;
     j["payload"]   = payload;
